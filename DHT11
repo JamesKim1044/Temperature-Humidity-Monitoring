@@ -1,0 +1,92 @@
+#define TOPIC_TEMP "Temperature"
+#define TOPIC_HUMI "Humidity"
+
+#include "myConfig.h"
+#include <DHTesp.h>
+#include <AimTimer.h>
+#include <AimMqtt.h>
+#include <AimOutput.h>
+#include <AimSerial.h>
+#include <Aims_oled_shield.h>
+
+
+
+
+AimTimer  Msg(10);
+AimTimer  HumiMsg(10);
+AimTimer timerOled(5);
+AimMqtt mqtt;
+AimSerial mySerial;
+
+Aims_oled oled;
+
+DHTesp dht;
+
+void displayOled(float Temp, float Humid);
+
+void setup() {
+    Serial.begin(115200);
+    Serial.println();
+    
+    pinMode(D2,OUTPUT); //make pin D3 a power outlet for 3.3v
+    dht.setup(D2, DHTesp::DHT11);
+    
+    mqtt.begin(myMqttSub, myMqttCallback);
+   
+}
+
+void loop() {
+    mqtt.run();
+    mySerial.run();
+    
+    float t = dht.getTemperature();
+    float f = (t*1.8) + 32;
+    float h = dht.getHumidity();
+
+     if (timerOled.isOn())
+     displayOled(t,h);
+   
+      
+  delay(3000);
+}
+
+void myMqttSub() {  
+  int QoS = 1;
+  mqtt.sub(TOPIC_TEMP,QoS);
+  mqtt.sub(TOPIC_HUMI,QoS);
+  
+}
+
+void myMqttCallback(const String& topic, const String& payload){
+  
+    mqtt.pub(TOPIC_TEMP,dht.getTemperature(),true);
+    mqtt.pub(TOPIC_HUMI,dht.getHumidity(),true);
+  
+}
+
+void mySerialCallback(const String& key,const String& val) {
+
+    mqtt.pub(TOPIC_TEMP,dht.getTemperature(),true);
+    mqtt.pub(TOPIC_HUMI,dht.getHumidity(),true);
+  
+}
+
+void displayOled(float Temp, float Humid){
+  const int cntMax = 2; 
+  static int cnt = 0;   
+
+ 
+  cnt = cnt + 1;
+  if(cnt > cntMax){
+    cnt = 1;
+  }
+  
+  switch(cnt) {
+    case 1: oled.keyVal("Temperature",String(Temp,1));
+            break;
+    case 2: oled.keyVal("Humidity",String(Humid,0));
+            break;
+  }
+  delay(1000);
+ 
+}
